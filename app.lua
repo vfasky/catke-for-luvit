@@ -6,6 +6,7 @@ local Index   = Handler:extend()
 function Index:get()
     self:write({success = true})
     
+	self:finish()
 end
 
 web.static_path(__dirname .. "/static")

@@ -55,7 +55,7 @@ function Handler:write(x)
     --self:finish()
 end
 
--- 结束请求前招待
+-- 结束请求前执行
 function Handler:on_finish()
 
 end
