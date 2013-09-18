@@ -1,20 +1,12 @@
-local web     = require("catke/web")
-local Handler = require("catke/web/handler")
+local web      = require("catke/web")
+local config   = require("./config")
 
-local Index   = Handler:extend()
+app = web.route('/', require('./app/handlers/index'))
 
-function Index:get()
-	self:render('index.html', {
-		test = 'v'
-	})
-end
+-- 加载静态目录中间件
+web.use(require('catke/web/static')(config['sataic_path']))
+web.use(require('./app/middlewares/postgres')) -- 自动连接 postgres
 
-web.static_path(__dirname .. "/static")
-
-app = web.route('/', Index)
-
-web.createServer(app, {
-	view_path = __dirname .. '/app/views/'
-}):listen(8080)
+web.createServer(app, config):listen(config['port'])
 
 print("Server listening at http://localhost:8080/")

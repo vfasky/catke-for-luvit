@@ -7,7 +7,6 @@ local utils     = require("../utils")
 -- 主调度
 local Application = {}
 
-
 -- 404
 function Response:not_found(reason)
     if nil == reason then
@@ -37,21 +36,16 @@ end
 -- app的配置文件
 Application.settings = {
 	view_path = __dirname,
-	debug     = true
+	debug     = true,
+	tpl_cache = 3600 * 24 * 365
 }
 
 -- 中间件
-Application._middlewares = Array()
---Application._middlewares:append( require('./cleanup') )
+Application._middlewares = Array:new()
 
 -- 默认 404 处理
 Application.handlers = function(req, res)
     res:not_found()
-end
-
--- 设置静态目录
-Application.static_path = function(path)
-    Application.handlers = require('./static')(Application.handlers, path)
 end
 
 --添加路由及handler
@@ -64,10 +58,11 @@ end
 --绑定中间件
 Application.use = function(middleware)
     Application._middlewares:append(middleware)
+	return Application
 end
 
-Application.createServer = function(app, settings)
-
+Application.createServer = function(handlers, settings)
+	
 	Application.settings = utils.extend(Application.settings, settings)
 
     return http.createServer(function (req, res)
@@ -75,10 +70,15 @@ Application.createServer = function(app, settings)
 
         -- 加载中间件
         Application._middlewares:each(function(middleware)
-            app = middleware(app)
+            handlers = middleware(req, res, handlers, Application)
+			if false == handlers then
+				return false
+			end
         end)
 
-        app(req, res, Application)
+		if handlers then
+        	handlers(req, res, Application)
+		end
     end)
 end
 

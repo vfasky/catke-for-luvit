@@ -1,1 +1,1 @@
-return require("./application.lua")
+return require("./application")

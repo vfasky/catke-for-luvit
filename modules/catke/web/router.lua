@@ -42,10 +42,11 @@ return function (app, setup)
                 local matches = path(req.url.path)
                 if matches then
                     req.params = matches
-                    return handler(req, res, application)
+                    return handler:new(req, res, application)
             end
             elseif req.url.path == path then
-                return handler(req, res, application)
+				req.params = req.params or {}
+                return handler:new(req, res, application)
           end
         end
         app(req, res, application)

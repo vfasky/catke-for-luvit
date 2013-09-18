@@ -10,15 +10,15 @@ app = require('catke/web/static')(app, path)
 ```
 
 ]]
-local fs = require 'fs'
+local fs = require('fs')
 local pathJoin = require('path').join
 local urlParse = require('url').parse
 local getType = require('mime').getType
 local osDate = require('os').date
 local iStream = require('core').iStream
-
+local string = require('string')
 local floor = require('math').floor
-local table = require 'table'
+local table = require('table')
 
 -- For encoding numbers using bases up to 64
 local digits = {
@@ -48,26 +48,26 @@ local function calcEtag(stat)
 end
 
 -- 对外发布
-return function (app, root)
-
-    return function (req, res)
-        -- Ignore non-GET/HEAD requests
+return function (root)
+	return function (req, res, handlers, app)
+	
+		-- Ignore non-GET/HEAD requests
         if not (req.method == "HEAD" or req.method == "GET") then
-            return app(req, res)
-        end
+            return handlers
+		end
 
         local serve = function(path, callback)
 
             fs.open(path, "r", function (err, fd)
                 if err then
-                    return app(req, res)
+                    return handlers
                 end
 
                 fs.fstat(fd, function (err, stat)
                     if err then
                         fs.close(fd)
-                        return app(req, res)
-                    end
+                        return handlers
+					end
 
                     local etag = calcEtag(stat)
                     local code = 200
@@ -101,19 +101,28 @@ return function (app, root)
             end)
             
         end
+		local uri  = req.url.path
+		local dir  = '/static/'
+	
+		if string.find(uri, dir) ~= 1 then
+			return handlers
+		end
+	
+		local path = pathJoin(root .. '/', uri:sub(#dir))
+		m_root = string.gsub(root, '%-', '')
+		m_path = string.gsub(path, '%-', '')
 
-        local path = pathJoin(root, req.url.path)
-
-        if path:sub(#path) == '/' then
-            return app(req, res)
-        else 
+		if m_path:find(m_root) ~= 1 or path:sub(#path) == '/' then
+            return handlers
+		else 
             fs.exists(path, function(err)
                 
                 if err then
-                    return app(req, res)
-                end
+                    return handlers
+				end
 
-                return serve(path)
+                serve(path)
+				return false
             end)
         end
     end

@@ -1,24 +1,37 @@
-local Class      = require('../base').Class
+local Object     = require('core').Object
 local Validators = require('../utils').Validators
 local String     = require('string')
-local Handler    = Class()
 local JSON       = require('json')
 local Kernel     = require('./template')
+local Handler    = Object:extend()
 
-function Handler:init(req, res, application)
+function Handler:initialize(req, res, application)
     self.req = req
     self.res = res
     self.application = application
 	self.settings    = application.settings
 
-    self:initialize()
+	--p(req)
+
+	-- 默认的请求头
+	self._headers = {}
+	self._headers['Content-Type'] = "text/plain"
+
+    self:init()
 
     self:execute()
 end
 
 -- handler 的初始化
-function Handler:initialize()
+function Handler:init()
 
+end
+
+function Handler:set_header(name, value)
+	self._headers[name] = value
+end
+
+function Handler:set_default_headers()
 end
 
 function Handler:write_error(reason, code)
@@ -26,10 +39,9 @@ function Handler:write_error(reason, code)
         code = "500"
     end
 
-    self.res:writeHead(code, {
-        ["Content-Type"] = "text/plain",
-        ["Content-Length"] = #reason
-    })
+	self:set_header('Content-Length', #reason)
+
+    self.res:writeHead(code, self._headers)
     self.res:write(reason)
     self.res:finish()
 end
@@ -37,38 +49,49 @@ end
 -- 输出
 function Handler:write(x)
     res = self.res
-    local body = tostring(x)
+	local body = x
 
-    if Validators.is_string(x) then
-        body = x
-        res:writeHead(200, {
-            ["Content-Type"] = "text/html; charset=UTF-8",
-            ["Content-Length"] = #body
-        })
+	if Validators.is_string(x) then
+		
+		self:set_header('Content-Length', #body)
+ 		self:set_header('Content-Type', "text/html; charset=UTF-8")
+
+        res:writeHead(200, self._headers)
         
     elseif Validators.is_table(x) then
         body = JSON.stringify(x)
-        res:writeHead(200, {
-            ["Content-Type"] = "application/json; charset=UTF-8",
-            ["Content-Length"] = #body
-        })
+
+		self:set_header('Content-Length', #body)
+       	self:set_header('Content-Type', "application/json; charset=UTF-8")
+
+		res:writeHead(200, self._headers)
+	else
+		body = tostring(body)
     end
+
     res:write(body)
     --self:finish()
 end
 
+-- 取模板目录
+function Handler:get_template_path()
+	return self.settings['view_path']
+end
+
 -- 渲染模板
 function Handler:render(filename, data)
-	local file_path = self.settings['view_path'] .. filename
+	local file_path = self:get_template_path() .. filename
 	local handler   = self
 
 	if self.settings['debug'] then
 		Kernel.cache_lifetime = 0
+	else
+		Kernel.cache_lifetime = self.settings['tpl_cache']
 	end
 
-	Kernel._base_path = self.settings['view_path']
+	Kernel._base_path = self:get_template_path()
 
-	Kernel.compile(file_path, function (err, template)
+	Kernel.compile(file_path, function(err, template)
 		if err then
 			handler:write_error(err)
 			return
@@ -135,18 +158,14 @@ function Handler:execute()
     elseif 'head' == method then
         return self:head()
     elseif 'delete' == method then
-        return self:post()
+        return self:delete()
     elseif 'patch' == method then
-        return self:post()
+        return self:patch()
     elseif 'put' == method then
-        return self:post()
+        return self:put()
     elseif 'options' == method then
-        return self:post()
+        return self:options()
     end
-end
-
-function Handler:extend()
-    return Class(Handler)
 end
 
 return Handler
