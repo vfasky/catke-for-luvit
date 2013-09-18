@@ -31,7 +31,7 @@ function Handler:write_error(reason, code)
         ["Content-Length"] = #reason
     })
     self.res:write(reason)
-    self.res:close()
+    self.res:finish()
 end
 
 -- 输出
