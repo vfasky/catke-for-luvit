@@ -24,4 +24,11 @@ utils.Validators = {
     end
 }
 
+-- 合并 table
+utils.extend = function (base, data)
+	base = utils.Validators.is_table(base) and base or {}
+	data = utils.Validators.is_table(data) and data or {}
+	return setmetatable(data, {__index=base})
+end
+
 return utils

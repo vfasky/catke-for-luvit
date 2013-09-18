@@ -1,13 +1,15 @@
-local Class      = require("../base").Class
-local Validators = require("../utils").Validators
+local Class      = require('../base').Class
+local Validators = require('../utils').Validators
 local String     = require('string')
 local Handler    = Class()
 local JSON       = require('json')
+local Kernel     = require('./template')
 
 function Handler:init(req, res, application)
     self.req = req
     self.res = res
     self.application = application
+	self.settings    = application.settings
 
     self:initialize()
 
@@ -53,6 +55,36 @@ function Handler:write(x)
     end
     res:write(body)
     --self:finish()
+end
+
+-- 渲染模板
+function Handler:render(filename, data)
+	local file_path = self.settings['view_path'] .. filename
+	local handler   = self
+
+	if self.settings['debug'] then
+		Kernel.cache_lifetime = 0
+	end
+
+	Kernel._base_path = self.settings['view_path']
+
+	Kernel.compile(file_path, function (err, template)
+		if err then
+			handler:write_error(err)
+			return
+		end
+
+		template(data, function(err, result)
+			if err then
+				handler:write_error(err)
+				return
+			end
+			handler:write(result)
+			handler:finish()
+
+		end)
+	end)
+
 end
 
 -- 结束请求前执行

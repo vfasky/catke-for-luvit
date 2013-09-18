@@ -3,6 +3,10 @@ local http      = require("http")
 local Response  = http.Response
 local route     = require("./router")
 local Array     = require("../base").Array
+local utils     = require("../utils")
+-- 主调度
+local Application = {}
+
 
 -- 404
 function Response:not_found(reason)
@@ -30,8 +34,11 @@ function Response:error(reason)
     self:finish()
 end
 
--- 主调度
-local Application = {}
+-- app的配置文件
+Application.settings = {
+	view_path = __dirname,
+	debug     = true
+}
 
 -- 中间件
 Application._middlewares = Array()
@@ -54,12 +61,15 @@ Application.route = function(path, handler)
     end)
 end
 
+--绑定中间件
 Application.use = function(middleware)
     Application._middlewares:append(middleware)
 end
 
-Application.createServer = function(app)
-    local application = self
+Application.createServer = function(app, settings)
+
+	Application.settings = utils.extend(Application.settings, settings)
+
     return http.createServer(function (req, res)
         req.url = parse_url(req.url)
 
@@ -68,7 +78,7 @@ Application.createServer = function(app)
             app = middleware(app)
         end)
 
-        app(req, res, application)
+        app(req, res, Application)
     end)
 end
 
