@@ -5,9 +5,9 @@ Catke : lua web框架
 
 ### 性能测试
 
-cpu  : 双核 i5(1.7G) 
-内存 : 512 MB
-OS   : centos 6.2(32位， vbox 虚拟)
+- cpu  : 双核 i5(1.7G) 
+- 内存 : 512 MB
+- OS   : centos 6.2(32位， vbox 虚拟)
 
 连接 postgres 表（有数据2条），执行：
 
