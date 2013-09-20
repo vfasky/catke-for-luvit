@@ -19,9 +19,9 @@ ab 测试：
 
 ```sh
 ab -n 10000 -c 200 http://127.0.0.1/
-``
+```
 
-结果
+结果:
 
 ```
 Server Software:        Luvit
