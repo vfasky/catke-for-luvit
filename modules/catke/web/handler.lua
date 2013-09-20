@@ -8,8 +8,8 @@ local Handler    = Object:extend()
 function Handler:initialize(req, res, application)
     self.req = req
     self.res = res
-    self.application = application
-	self.settings    = application.settings
+    self.app = application
+	self.settings = application.settings
 
 	--p(req)
 

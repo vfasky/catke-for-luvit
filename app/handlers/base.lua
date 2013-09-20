@@ -3,7 +3,7 @@ local Base = Handler:extend()
 
 -- handler 的初始化
 function Base:init()
-	self.db = self.application.database
+	self.db = self.app.database
 end
 
 return Base
