@@ -21,7 +21,7 @@ function Response:not_found(reason)
 end
 
 -- 500
-function Response:error(reason)
+function Response:send_error(reason)
     if nil == reason then
         reason = "500"
     end
@@ -68,16 +68,30 @@ Application.createServer = function(handlers, settings)
     return http.createServer(function (req, res)
         req.url = parse_url(req.url)
 
-        -- 加载中间件
-        Application._middlewares:each(function(middleware)
-            handlers = middleware(req, res, handlers, Application)
-			if false == handlers then
-				return false
-			end
-        end)
+		local status, err = pcall(function()
+			-- 加载中间件
+			Application._middlewares:each(function(middleware)
+				handlers = middleware(req, res, handlers, Application)
+				if false == handlers then
+					return false
+				end
+			end)
 
-		if handlers then
-        	handlers(req, res, Application)
+			if handlers then
+				handlers(req, res, Application)
+			end
+
+		end)
+
+		if not status then
+			
+			if settings['debug'] then
+				p(err)
+				res:send_error(err:split(':')[3])
+			else
+				print(err)
+				res:send_error('505')
+			end
 		end
     end)
 end

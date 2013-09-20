@@ -103,8 +103,12 @@ return function (root)
         end
 		local uri  = req.url.path
 		local dir  = '/static/'
+
+		if not uri then
+			return handlers
+		end
 	
-		if string.find(uri, dir) ~= 1 then
+		if uri:find(dir) ~= 1 then
 			return handlers
 		end
 	

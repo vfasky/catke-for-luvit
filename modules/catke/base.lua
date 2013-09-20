@@ -1,6 +1,13 @@
-local table  = require 'table'
+local table  = require('table')
 local Object = require('core').Object
+local string = require('string')
 
+function string:split(sep)
+	local sep, fields = sep or ":", {}
+	local pattern = string.format("([^%s]+)", sep)
+	self:gsub(pattern, function(c) fields[#fields+1] = c end)
+	return fields
+end
 --[[
 数组的实现
 ==========
@@ -15,21 +22,22 @@ function Array:clear()
 	self._data = {}
 end
 
-function Array:get(index)
-	local value = nil
+function Array:set(index, val)
+	if index > self:length() then
+		return false
+	end
+	self._data[index] = val
+end
 
-	if index > Array:length() then
+function Array:get(index, def)
+	local value = def or nil
+
+	if index > self:length() then
 		return value
 	end
 
-	Array:each(function(v, k)
-		if k == index then
-			value = v
-			return false
-		end
-	end)
+	return self._data[index]
 
-	return value
 end
 
 function Array:length()
@@ -42,9 +50,11 @@ end
 
 function Array:append(val)
     table.insert(self._data, val)
+	return #self._data
 end
 
 function Array:each(callback)
+	local k, v
     for k, v in ipairs(self._data) do
         if false == callback(v, k) then
             break
