@@ -7,7 +7,7 @@ local app = web.route('/', require('./app/handlers/index'))
 web.use(require('catke/web/static')(config['sataic_path']))
 web.use(require('catke/web/task')) -- 使用任务队列
 web.use(require('./app/middlewares/postgres')) -- 连接 postgres
-web.use(require('./app/middlewares/init-app')) 
+--web.use(require('./app/middlewares/init-app')) 
 
 web.createServer(app, config):listen(config['port'])
 

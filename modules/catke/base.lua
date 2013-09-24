@@ -1,6 +1,7 @@
 local table  = require('table')
 local Object = require('core').Object
 local string = require('string')
+local JSON   = require('json')
 
 function string:split(sep)
 	local sep, fields = sep or ":", {}
@@ -16,6 +17,7 @@ local Array = Object:extend()
 
 function Array:initialize(data)
     self._data = data or {}
+
 end
 
 function Array:clear()
@@ -39,6 +41,7 @@ function Array:get(index, def)
 	return self._data[index]
 
 end
+
 
 function Array:length()
     return table.getn(self._data)
@@ -78,6 +81,14 @@ function Array:remove(val)
     if not (index == -1) then
         table.remove(self._data, index)
     end
+end
+
+function Array:to_json ()
+	return JSON.stringify(self._data)
+end
+
+function Array.meta.__call(self, key)
+	return self:get(key)
 end
 
 return {

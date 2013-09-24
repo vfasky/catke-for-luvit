@@ -79,7 +79,15 @@ function Postgres:connect(callback)
 								local task = tasks:get(1)
 								_queue_starts:set(ix, 1) -- 设置状态为查询
 
-								con:sendQuery(task.sql, function(err, result)
+								local i
+								local sql_args = {}
+								local arg_len = #task.arg
+								for i=1, arg_len do
+									sql_args[#sql_args + 1] = con:escape(task.arg[i])
+								end
+								--p(task.sql:format( unpack(sql_args) ))
+
+								con:sendQuery(task.sql:format(unpack(sql_args)) , function(err, result)
 									tasks = _queue:get(ix)
 									tasks:remove(task)
 									_queue:set(ix, tasks)
@@ -103,10 +111,11 @@ function Postgres:connect(callback)
 end
 
 local _task_count = 0
-local function add_task(sql, callback)
-	local min_count = nil
-	local pooling_ix
+local function add_task(sql, arguments, callback)
+	local pooling_ix, i
 
+	local min_count = nil
+	
 	_task_count = _task_count + 1
 
 	_queue:each(function(tasks, index)
@@ -124,6 +133,7 @@ local function add_task(sql, callback)
 	local task = {
 		id = _task_count,
 		sql = sql,
+		arg = arguments,
 		callback = callback 
 	}
 
@@ -131,16 +141,76 @@ local function add_task(sql, callback)
 
 end
 
+local get_arguments = function(...)
+	local arguments = { ... }
 
-function Postgres:execute(sql, callback)
+	local arg_len  = #arguments
+	local callback = arguments[arg_len]
+	local fm_arg   = {}
+
+	if arg_len > 1 then
+		arg_len = arg_len - 1
+		for i = 1, arg_len do
+			fm_arg[#fm_arg + 1] = arguments[i]
+		end
+	end
+	
+	return fm_arg, callback 
+end
+
+function Postgres:query(sql, ...)
+	local fm_arg, callback = get_arguments(...)
+	
 	if _connects then
-		add_task(sql, callback)
+		add_task(sql, fm_arg, function(err, result)
+			if err then
+				error(err)
+			end
+			if #result == 1 then
+				callback(Array:new())
+				return
+			end
+			
+			local key_arr = result[0]
+			local key_len = #key_arr
+			local res_arr = Array:new(result)
+			local data    = Array:new()
+			res_arr:each(function(val, ix)
+				local i
+				local item = {}
+				for i = 1, key_len do
+					item[ key_arr[i] ] = val[i]
+				end
+				data:append(item)
+			end)
+
+
+			callback(data)
+		end)
 		return
 	end
 
-	Postgres:connect(function(con)
-		add_task(sql, callback)
-	end)
+	error('database Not link')
+
 end
+
+function Postgres:execute(sql, ...)
+	local fm_arg, callback = get_arguments(...)
+
+	if _connects then
+		add_task(sql, fm_arg, function(err, result)
+			if err then
+				error(err)
+			end
+			
+			callback(result)
+		end)
+		return
+	end
+
+	error('database Not link')
+
+end
+
 
 return Postgres
