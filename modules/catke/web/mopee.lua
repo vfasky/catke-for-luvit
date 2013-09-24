@@ -42,6 +42,7 @@ function Field.meta.__call(self, x)
 		value = self.attr.default 
 	end
 	self.value = value 
+	return value
 end
 
 function Field:initialize(args)
@@ -127,27 +128,136 @@ end
 
 function Mopee:initialize(db_table, fields)
 	if not fields.id then 
-		fields.id = Mopee.IntegerField:new({pk = true})
+		fields.id = Mopee.IntegerField:new({pk = true, null = true})
 		fields.id.order = 0
 	end
 
-	self.fields = Array:new()
+	self._fields   = Array:new()
+	self._db_table = db_table
 
 	for name, field in pairs(fields) do
 		field.name  = name
 		field.model = self
 
 		field(nil) -- 设置默认值
-		self.fields:append(field)
+		self._fields:append(field)
+		
+		self[name] = field
 	end
 
-	self.fields:sort(function(a, b)
+	self._fields:sort(function(a, b)
 		return a.order < b.order
 	end)
 
-	self.fields:each(function(field)
-		--p(field:sql())
+
+end
+
+function Mopee:creat_table(callback)
+	local stack  = Array:new()
+	local indexs = Array:new()
+	self._fields:each(function(field)
+		stack:append(field:sql())
+		if field.attr.index then
+			indexs:append(field.name)
+		end
 	end)
+
+	local sql = 'CREATE TABLE IF NOT EXISTS "%s" (%s);'
+	sql = sql:format(self._db_table, stack:join(', '))
+
+	local ix_sql = ''	
+	-- creat index
+	if indexs:length() > 0 then
+		ix_sql = 'CREATE INDEX %s_idx ON "%s" (%s);'
+		ix_sql = ix_sql:format(self._db_table, self._db_table, indexs:join(', '))
+	end
+
+	if self.meta.database then
+		self.meta.database:connect(function(db)
+			db:execute(sql, function(ret)
+				--p(ix_sql)
+				if '' == ix_sql then
+					return callback(ret[0])
+				end
+
+				db:execute(ix_sql, callback)
+			end)
+		end)
+		return
+	end
+
+	callback(sql .. ix_sql)
+end
+
+-- database
+Mopee.meta.database = nil
+
+local AR = Object:extend()
+
+function AR:initialize(fields, model)
+	self._fields = fields 
+	self._model  = model
+
+	fields:each(function(field)
+		self[field.name] = field.value
+	end)
+end
+
+function AR:save(callback)
+	local is_insert = self.id == nil
+	local values    = Array:new()
+	local items     = Array:new()
+	local seps      = Array:new()
+	local stack     = Array:new()
+	local sql       = ''
+	self._fields:each(function(field)
+		-- check
+		local val = field(self[field.name])
+		if nil == val and not field.attr.null then
+			error(string.format('%s is Not null', field.name))
+		end
+		if nil ~= val and 'id' ~= field.name then
+			values:append(val)
+			items:append(string.format('"%s"', field.name))
+			seps:append('%s')
+			if false == is_insert then
+				stack:append(string.format('"%s" = %s', field.name, '%s'))
+			end
+		end
+
+
+	end)
+	
+
+	if is_insert then
+		sql = string.format('INSERT INTO "%s" (%s) VALUES (%s) RETURNING id;',
+			self._model._db_table, items:join(', '),  seps:join(', '))
+	else
+		sql = string.format('UPDATE "%s" SET %s WHERE "id"=%s;',
+			self._model._db_table, stack:join(', '), self.id)
+
+	end
+
+	local database = self._model.meta.database 
+	if nil == database then
+		callback(sql, values)
+		return
+	end
+	
+	local this = self
+	values:append(function(ret)
+		if is_insert and ret[1] and ret[1][1] then
+			this.id = tonumber(ret[1][1])
+		end
+		callback(this)
+	end)
+
+	database:connect(function(db)
+		db:execute(sql, unpack(values()))
+	end)
+end
+
+function AR:delete(callback)
 
 end
 
@@ -155,17 +265,16 @@ function Mopee.meta.__call(self, args)
 	local tasks = Array:new()
 	local this  = self
 	for k, v in pairs(args) do
-		self.fields:each(function(field)
+		self._fields:each(function(field)
 			if field.name == k then
 				field(v)
 			end
 		end)
 	end
 
-	local count   = tasks:length()
-	local success = 0
-
-	p(this.fields())
+	return AR:new(self._fields, self)
 end
+
+
 
 return Mopee
