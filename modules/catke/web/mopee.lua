@@ -265,6 +265,7 @@ end
 function Mopee.meta.__call(self, args)
 	local tasks = Array:new()
 	local this  = self
+	args = args or {}
 	for k, v in pairs(args) do
 		self._fields:each(function(field)
 			if field.name == k then
