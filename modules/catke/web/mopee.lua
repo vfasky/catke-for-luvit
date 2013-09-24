@@ -38,6 +38,7 @@ end
 -- 设置值
 function Field.meta.__call(self, x)
 	local value = self:serialize(self.data_type(x))
+	--todo: max_length
 	if nil == value then
 		value = self.attr.default 
 	end
