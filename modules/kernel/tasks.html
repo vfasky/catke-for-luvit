@@ -1,0 +1,12 @@
+<h1>Tasks for {name}</h1>
+{#IF(#tasks > 0)}
+<ul>
+{#LOOP(tasks)}
+  <li>{task} ({index}/{{#tasks}})</li>
+{/LOOP}
+</ul>
+{/IF}
+{#IF(#tasks == 0)}
+<p>Congratulations!  Your tasks are all done</p>
+{/IF}
+{PARTIAL("footer.html", this)}
