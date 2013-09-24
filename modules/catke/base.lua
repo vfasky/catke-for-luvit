@@ -9,6 +9,7 @@ function string:split(sep)
 	self:gsub(pattern, function(c) fields[#fields+1] = c end)
 	return fields
 end
+
 --[[
 数组的实现
 ==========
@@ -17,7 +18,6 @@ local Array = Object:extend()
 
 function Array:initialize(data)
     self._data = data or {}
-
 end
 
 function Array:clear()
@@ -83,12 +83,16 @@ function Array:remove(val)
     end
 end
 
-function Array:to_json ()
+function Array:sort(callback)
+	table.sort(self._data, callback)
+end
+
+function Array:to_json()
 	return JSON.stringify(self._data)
 end
 
-function Array.meta.__call(self, key)
-	return self:get(key)
+function Array.meta.__call(self)
+	return self._data 
 end
 
 return {

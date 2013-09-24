@@ -5,42 +5,33 @@ local twisted  = require('twisted')
 local yield    = twisted.yield
 local config   = require("./config")
 
-Mopee.meta.database = Postgres:new(config['database'], config['pqdb_lib'])
-
-
-local Model = Mopee:new('model', {
-	test = Mopee.BooleanField(),
-	title = Mopee.CharField({max_length = 255})
+local TModel = Mopee:new('test_m', {
+	test = Mopee.IntegerField:new({index = true}),
+	title = Mopee.CharField:new({max_length = 100, default = 'ddddd'})
 })
 
-local model = Model({
-	test = true
+--p(TModel)
+
+local model = TModel({
+	test = 'test',
 })
+
+--Mopee.meta.database = Postgres:new(config['database'], config['pqdb_lib'])
+
+
+--local Model = Mopee:new('test_model', {
+	--test = Mopee.BooleanField(),
+	--t2 = Mopee.IntegerField({index=true}),
+	--title = Mopee.CharField({max_length = 255})
+--})
+
+
+--local model = Model({
+	--test = true
+--})
 
 
 --model:save(function(sql)
 	--p(sql)
 --end)
-
-Model:create_table(function(sql)
-	p(sql)
-end)
-
---local sync = twisted.inline_callbacks(function()
-	--local res = yield(function(cb)
-		--model:create_table(function(sql)
-			--cb(sql)
-		--end)
-	--end)
-	
-	--return {nil, res}
---end)
-
---sync(function(err, res)
-  --if err then
-    --return p('there was an err', err)
-  --end
-  --p('the result is: ', res)
---[[end)]]
-
 
