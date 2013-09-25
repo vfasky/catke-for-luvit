@@ -86,7 +86,7 @@ function Field:init(args)
 			self.model._db_table, self.name, self.get_name())
 	end
 
-	self.Ase = function()
+	self.Asc = function()
 		return string.format('"%s" ASC', self.get_name())
 	end
 
@@ -606,6 +606,43 @@ function Query:all(callback)
 
 		sql = string.format('%s WHERE ( %s )', sql, where_sql:join(' AND '))
 
+	end
+
+	-- or where
+
+	if self._or:length() > 0 then
+		if self._where:length() == 0 then
+			sql = sql .. ' WHERE '
+		else
+			sql = sql .. ' OR '
+		end
+
+		local or_sql = Array:new()
+
+		self._or:each(function(where)
+			if where then
+				if where.type ~= 'IN' and where.type ~= 'NOT IN' then
+					values:append(where.values)
+					or_sql:append(string.format('"%s" %s %s', where.name, where.type, '%s'))
+				else
+					or_sql:append(string.format('"%s" %s %s', where.name, where.type, where.value))
+				end
+			end
+		end)
+
+		sql = string.format('%s ( %s )', sql, or_sql:join(' OR '))
+	end
+
+	if self._limit then
+		sql = sql .. ' LIMIT ' .. tonumber(self._limit)
+	end
+
+	if self._offset then
+		sql = sql .. ' OFFSET ' .. tonumber(self._offset)
+	end
+
+	if self._order_by:length() > 0 then
+		sql = sql .. ' ORDER BY ' .. self._order_by:join(', ')
 	end
 
 	p(sql)

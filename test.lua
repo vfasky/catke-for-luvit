@@ -31,7 +31,9 @@ T2Model:select():all()
 T2Model:select(T2Model.id, T2Model.tmodel, TModel.title)
        :join(TModel.id.Eq(1))
 	   :where(TModel.title.In({1,5,6}))
-       :all()
+	   :or_where(TModel.id.Ge(3))
+	   :order_by(TModel.id.Asc())
+       :get()
 
 --[[
 model2:save(function(ret, id)
