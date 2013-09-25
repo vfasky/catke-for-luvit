@@ -5,18 +5,47 @@ local twisted  = require('twisted')
 local yield    = twisted.yield
 local config   = require("./config")
 
-Mopee.meta.database = Postgres:new(config['database'], config['pqdb_lib'])
+--Mopee.meta.database = Postgres:new(config['database'], config['pqdb_lib'])
 
 
 local TModel = Mopee:new('test_m', {
 	test = Mopee.IntegerField:new({index = true}),
 	title = Mopee.CharField:new({max_length = 100, default = 'ddddd'})
 })
+
+local T2Model = Mopee:new('test2_m', {
+	tmodel = Mopee.ForeignKey:new(TModel)
+})
+
+local model = TModel({
+	test = 12,
+	id = 1
+})
+
+local model2 = T2Model({
+	tmodel = model
+})
+
+T2Model:select():all()
+
+T2Model:select(T2Model.id, T2Model.tmodel, TModel.title)
+       :join(TModel.id.Eq(1))
+	   :where(TModel.title.In({1,5,6}))
+       :all()
+
 --[[
+model2:save(function(ret, id)
+	p(ret, id)
+end)
+
+--[[
+T2Model:creat_table(function(ret)
+	p(ret)
+end)
+
 TModel:creat_table(function(ret)
 	p(ret)
 end)
-]]
 
 local model = TModel({
 	test = 12
@@ -29,9 +58,12 @@ model:save(function(ar)
 	-- edit
 	ar:save(function(ar)
 		p(ar)
+		
+		ar:delete(function(ret)
+			p(ret)
+		end)
 	end)
 end)
-
 
 --Mopee.meta.database = Postgres:new(config['database'], config['pqdb_lib'])
 
@@ -51,4 +83,4 @@ end)
 --model:save(function(sql)
 	--p(sql)
 --end)
-
+]]

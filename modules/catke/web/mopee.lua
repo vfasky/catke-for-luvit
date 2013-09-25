@@ -51,7 +51,7 @@ function Field:initialize(args)
 end
 
 function Field:init(args)
-
+	self.order_by  = 'DESC'
 	self.promise   = self:defautl_promise()
 	self.attr      = {}
 	self.data_type = utils.Promise:new('number')
@@ -70,8 +70,187 @@ function Field:init(args)
 			self.attr[k] = v.default
 		end
 	end
+	
+	self.As = function(name)
+		local this = utils.copy(self)
+		this._as_name = name
+		return this
+	end
+
+	self.get_name = function()
+		return self._as_name or self.name
+	end
+
+	self.sql_name = function()
+		return string.format('"%s"."%s" AS "%s"', 
+			self.model._db_table, self.name, self.get_name())
+	end
+
+	self.Ase = function()
+		return string.format('"%s" ASC', self.get_name())
+	end
+
+	self.Desc = function()
+		return string.format('"%s" DESC', self.get_name())
+	end
+	
+	-- 小于
+	self.Lt = function(x)
+		return { 
+			this = self,
+			name = self.get_name(),
+			type = '<',
+			value = x
+		}
+	end
+	
+	-- 小于等于
+	self.Le = function(x)
+		return { 
+			this = self,
+			name = self.get_name(),
+			type = '<=',
+			value = x
+		}
+	end
+	
+	-- 大于
+	self.Gt = function(x)
+		return { 
+			this = self,
+			name = self.get_name(),
+			type = '>',
+			value = x
+		}
+	end
+
+	
+	-- 大于等于
+	self.Ge = function(x)
+		return { 
+			this = self,
+			name = self.get_name(),
+			type = '>=',
+			value = x
+		}
+	end
+
+	-- 不等于
+	self.Ne = function(x)
+		return { 
+			this = self,
+			name = self.get_name(),
+			type = '!=',
+			value = x
+		}
+	end
+	
+	-- 等于
+	self.Eq = function(x)
+		if x == nil then
+			x = ''
+		end
+
+		return { 
+			this = self,
+			name = self.get_name(),
+			type = '=',
+			value = x
+		}
+	end
+
+	self.Link = function(x)
+		if x == nil then
+			x = ''
+		end
+
+		return { 
+			this = self,
+			name = self.get_name(),
+			type = 'LINK',
+			value = x
+		}
+	end
+
+	self.Ilink = function(x)
+		if x == nil then
+			x = ''
+		end
+
+		return { 
+			this = self,
+			name = self.get_name(),
+			type = 'ILINK',
+			value = x
+		}
+	end
+
+
+	-- Not In 查询
+	self.NotIn = function(list)
+		local values  = Array:new()
+		local promise = utils.Promise:new('number', 0)
+
+		list = list or {}
+
+		if type(list) ~= 'table' then
+			return false
+		end
+
+		for k, v in ipairs(list) do
+			local value = promise(v)
+
+			if 0 ~= value then
+				values:append(value)
+			end
+		end
+
+		if 0 == values:length() then
+			return false
+		end
+
+		return { 
+			this = self,
+			name = self.get_name(),
+			type = 'NOT IN',
+			value = string.format('(%s)', values:join(', '))
+		}
+	end
+
+	
+	-- In 查询
+	self.In = function(list)
+		local values  = Array:new()
+		local promise = utils.Promise:new('number', 0)
+
+		list = list or {}
+
+		if type(list) ~= 'table' then
+			return false
+		end
+
+		for k, v in ipairs(list) do
+			local value = promise(v)
+
+			if 0 ~= value then
+				values:append(value)
+			end
+		end
+
+		if 0 == values:length() then
+			return false
+		end
+			
+		return { 
+			this = self,
+			name = self.get_name(),
+			type = 'IN',
+			value = string.format('(%s)', values:join(', '))
+		}
+	end
 
 end
+
 
 -- int 类型
 local IntegerField = Field:extend()
@@ -125,6 +304,35 @@ function CharField:sql()
 	return sql
 
 end
+
+local ForeignKey = Field:extend()
+Mopee.ForeignKey = ForeignKey 
+
+function ForeignKey:initialize(target)
+	self:init()
+	self.target = target
+	self.data_type = utils.Promise:new('table')
+end
+
+
+function ForeignKey:sql()
+	local sql = '"%s" INT REFERENCES "%s" ("%s") ON UPDATE NO ACTION ON DELETE NO ACTION'
+	
+	return sql:format(self.name, self.target._db_table, self.target.id.name)
+end
+
+function ForeignKey:serialize(x)
+	if x == nil then
+		return x
+	end
+	--p(x.id)
+	return x.id
+end
+
+function ForeignKey:unserialize(x)
+	return { id = x }
+end
+
 
 
 function Mopee:initialize(db_table, fields)
@@ -195,12 +403,13 @@ Mopee.meta.database = nil
 
 local AR = Object:extend()
 
-function AR:initialize(fields, model)
-	self._fields = fields 
+function AR:initialize(model)
 	self._model  = model
+	self._fields = model._fields 
 
-	fields:each(function(field)
-		self[field.name] = field.value
+	self._fields:each(function(field)
+		--p(field.name, field.value)
+		self[field.name] = field:unserialize(field.value)
 	end)
 end
 
@@ -215,6 +424,7 @@ function AR:save(callback)
 		-- check
 		local val = field(self[field.name])
 		if nil == val and not field.attr.null then
+			p(self)
 			error(string.format('%s is Not null', field.name))
 		end
 		if nil ~= val and 'id' ~= field.name then
@@ -231,7 +441,7 @@ function AR:save(callback)
 	
 
 	if is_insert then
-		sql = string.format('INSERT INTO "%s" (%s) VALUES (%s) RETURNING id;',
+		sql = string.format('INSERT INTO "%s" (%s) VALUES (%s) RETURNING "id";',
 			self._model._db_table, items:join(', '),  seps:join(', '))
 	else
 		sql = string.format('UPDATE "%s" SET %s WHERE "id"=%s;',
@@ -259,22 +469,181 @@ function AR:save(callback)
 end
 
 function AR:delete(callback)
+	local database = self._model.meta.database 
+	local this     = self
+	if self.id then
+		local sql = string.format('DELETE FROM "%s" WHERE "id"=%s;',
+			self._model._db_table, '%s')
+		
+		if nil == database then
+			callback(sql)
+			return
+		end
 
+		database:connect(function(db)
+			db:execute(sql, this.id, function(ret)
+				this = nil
+				callback(true)
+			end)
+		end)
+	end
+end
+
+local Query = Object:extend() 
+
+function Query:initialize(model, ...)
+	self._select   = Array:new()
+	self._model    = model
+	self._where    = Array:new()
+	self._or       = Array:new()
+	self._join     = Array:new()
+	self._order_by = Array:new()
+	self._limit    = nil
+	self._offset   = nil
+	self.database = Mopee.meta.database
+
+	local args = { ... }
+	for k, v in ipairs(args) do
+		self._select:append(v.sql_name())
+	end
+
+end
+
+function Query:where(...)
+	local args = { ... }
+	for k, v in ipairs(args) do
+		self._where:append(v)
+	end
+	return self
+end
+
+function Query:or_where(...)
+	local args = { ... }
+	for k, v in ipairs(args) do
+		self._or:append(v)
+	end
+	return self
+end
+
+
+
+
+function Query:order_by(...)
+	local args = { ... }
+	for k, v in ipairs(args) do
+		self._order_by:append(v)
+	end
+	return self
+
+end
+
+function Query:join(...)
+	local args = { ... }
+	for k, v in ipairs(args) do
+		self._join:append(v)
+	end
+	return self
+end
+
+function Query:count(callback)
+
+end
+
+function Query:get(callback)
+	self._offset = 0
+	self._limit  = 1
+
+	self:all(callback)
+end
+
+function Query:all(callback)
+	-- 需要转义的值
+	local values     = Array:new()
+
+	local select_sql = '*'
+	local sql        = "SELECT %s FROM %s"
+
+	if self._select:length() > 0 then
+		select_sql = self._select:join(', ')
+	end
+
+	local table_sql = string.format('"%s"', self._model._db_table)
+
+	if self._join:length() > 0 then
+		local tables = Array:new()
+		tables:append(string.format('"%s"', self._model._db_table))
+
+		self._join:each(function(field)
+			local db_table = string.format('"%s"', field.this.model._db_table)
+			if tables:index(db_table) == -1 then
+				tables:append(db_table)
+			end
+
+			self._where:append(field)
+		end)
+
+		table_sql = tables:join(', ')
+	end
+
+	sql = sql:format(select_sql, table_sql)
+
+	-- where
+	
+	if self._where:length() > 0 then
+
+		local where_sql = Array:new()
+
+		self._where:each(function(where)
+			if where then
+				if where.type ~= 'IN' and where.type ~= 'NOT IN' then
+					values:append(where.values)
+					where_sql:append(string.format('"%s" %s %s', where.name, where.type, '%s'))
+				else
+					where_sql:append(string.format('"%s" %s %s', where.name, where.type, where.value))
+				end
+			end
+		end)
+
+		sql = string.format('%s WHERE ( %s )', sql, where_sql:join(' AND '))
+
+	end
+
+	p(sql)
+	
+end
+
+
+
+function Mopee:select(...)
+	return Query:new(self, ...)
+end
+
+function Mopee:execute(sql, ...)
+	if nil == Mopee.meta.database then
+		return
+	end
+	local args = { ... }
+	Mopee.meta.database:connect(function(db)
+		db:execute(sql, unpack(args))
+	end)
 end
 
 function Mopee.meta.__call(self, args)
 	local tasks = Array:new()
 	local this  = self
 	args = args or {}
+
+	-- set field value
 	for k, v in pairs(args) do
-		self._fields:each(function(field)
+		this._fields:each(function(field)
 			if field.name == k then
-				field(v)
+				field(v)	
 			end
 		end)
 	end
 
-	return AR:new(self._fields, self)
+	
+	return AR:new(this)
 end
 
 

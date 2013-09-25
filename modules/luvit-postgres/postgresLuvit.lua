@@ -53,7 +53,7 @@ end
 ]] 
 function LuvPostgres:initialize(coninfo, callback)
 
-   self.con = postgres.newAsync(coninfo)
+    self.con = postgres.newAsync(coninfo)
 
     --[[ This is an dirty hack to update the connection state. The correct
          solution should watch the socket descriptor and update upon 

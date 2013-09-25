@@ -192,7 +192,7 @@ end
             read PostgreSQL doc 31.3.1
 ]]
 function PSqlConnection:sendQuery(query)
-  assert(not self.queryInProcess, "Error: Old query isn't finished")
+  	assert(not self.queryInProcess, "Error: Old query isn't finished")
 	local ret = libpq.PQsendQuery(self.PGconn, query)
 	if ret == 0 then
 		error(self:getError())
