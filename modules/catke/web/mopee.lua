@@ -28,6 +28,9 @@ function Field:defautl_promise()
 end
 
 function Field:serialize(x)
+	if nil == x and self.default then
+		return self.default
+	end
 	return x
 end
 
@@ -37,7 +40,7 @@ end
 
 -- 设置值
 function Field.meta.__call(self, x)
-	local value = self:serialize(self.data_type(x))
+	local value = self.data_type(self:serialize(x))
 	--todo: max_length
 	if nil == value then
 		value = self.attr.default 
@@ -277,6 +280,13 @@ function IntegerField:sql()
 
 end
 
+function IntegerField:serialize(x)
+	if nil ~= x then
+		return tonumber(x)
+	end
+	return x
+end
+
 -- char 类型
 local CharField = Field:extend()
 Mopee.CharField = CharField 
@@ -305,6 +315,21 @@ function CharField:sql()
 
 end
 
+local TextField = Field:extend()
+Mopee.TextField = TextField 
+
+function TextField:initialize(target)
+	self:init()
+	self.data_type = utils.Promise:new('string')
+end
+
+
+function TextField:sql()
+	local sql = '"%s" TEXT'
+	
+	return sql:format(self.name)
+end
+
 local ForeignKey = Field:extend()
 Mopee.ForeignKey = ForeignKey 
 
@@ -317,7 +342,6 @@ end
 
 function ForeignKey:sql()
 	local sql = '"%s" INT REFERENCES "%s" ("%s") ON UPDATE NO ACTION ON DELETE NO ACTION'
-	
 	return sql:format(self.name, self.target._db_table, self.target.id.name)
 end
 
@@ -424,7 +448,7 @@ function AR:save(callback)
 		-- check
 		local val = field(self[field.name])
 		if nil == val and not field.attr.null then
-			p(self)
+			--p(self)
 			error(string.format('%s is Not null', field.name))
 		end
 		if nil ~= val and 'id' ~= field.name then
@@ -525,9 +549,6 @@ function Query:or_where(...)
 	return self
 end
 
-
-
-
 function Query:order_by(...)
 	local args = { ... }
 	for k, v in ipairs(args) do
@@ -546,6 +567,12 @@ function Query:join(...)
 end
 
 function Query:count(callback)
+	local compiler   = self:compiler_sql()
+	local sql        = string.format("SELECT COUNT(*) FROM %s %s", 
+		compiler.table_sql,
+		compiler.where_sql
+	)
+	p(sql)
 
 end
 
@@ -553,15 +580,21 @@ function Query:get(callback)
 	self._offset = 0
 	self._limit  = 1
 
-	self:all(callback)
+	self:all(function(data)
+		if data:length() == 0 then
+			callback(nil)
+			return
+		end
+
+		callback(data:get(1))
+	end)
 end
 
-function Query:all(callback)
-	-- 需要转义的值
+function Query:compiler_sql()
+		-- 需要转义的值
 	local values     = Array:new()
 
 	local select_sql = '*'
-	local sql        = "SELECT %s FROM %s"
 
 	if self._select:length() > 0 then
 		select_sql = self._select:join(', ')
@@ -585,53 +618,72 @@ function Query:all(callback)
 		table_sql = tables:join(', ')
 	end
 
-	sql = sql:format(select_sql, table_sql)
-
+	local where_sql = ''
 	-- where
 	
 	if self._where:length() > 0 then
 
-		local where_sql = Array:new()
+		local wheres = Array:new()
 
 		self._where:each(function(where)
 			if where then
 				if where.type ~= 'IN' and where.type ~= 'NOT IN' then
-					values:append(where.values)
-					where_sql:append(string.format('"%s" %s %s', where.name, where.type, '%s'))
+					values:append(where.value)
+	
+					wheres:append(string.format('"%s" %s %s', where.name, where.type, '%s'))
 				else
-					where_sql:append(string.format('"%s" %s %s', where.name, where.type, where.value))
+					wheres:append(string.format('"%s" %s %s', where.name, where.type, where.value))
 				end
 			end
 		end)
 
-		sql = string.format('%s WHERE ( %s )', sql, where_sql:join(' AND '))
+		where_sql = string.format(' WHERE ( %s )', wheres:join(' AND '))
 
 	end
 
 	-- or where
 
 	if self._or:length() > 0 then
-		if self._where:length() == 0 then
-			sql = sql .. ' WHERE '
+		if self._where:length() > 0 then
+			where_sql = where_sql .. ' OR '
 		else
-			sql = sql .. ' OR '
+			where_sql = ' WHERE '
 		end
 
-		local or_sql = Array:new()
+		local ors = Array:new()
 
 		self._or:each(function(where)
 			if where then
 				if where.type ~= 'IN' and where.type ~= 'NOT IN' then
 					values:append(where.values)
-					or_sql:append(string.format('"%s" %s %s', where.name, where.type, '%s'))
+					ors:append(string.format('"%s" %s %s', where.name, where.type, '%s'))
 				else
-					or_sql:append(string.format('"%s" %s %s', where.name, where.type, where.value))
+					ors:append(string.format('"%s" %s %s', where.name, where.type, where.value))
 				end
 			end
 		end)
 
-		sql = string.format('%s ( %s )', sql, or_sql:join(' OR '))
+		where_sql = string.format('%s ( %s )', where_sql, ors:join(' OR '))
 	end
+
+	
+	return {
+		select_sql = select_sql,
+		table_sql = table_sql,
+		where_sql = where_sql,
+		values = values
+	}
+
+end
+
+function Query:all(callback)
+	
+	local compiler   = self:compiler_sql()
+	local sql        = string.format("SELECT %s FROM %s %s", 
+		compiler.select_sql, 
+		compiler.table_sql,
+		compiler.where_sql
+	)
 
 	if self._limit then
 		sql = sql .. ' LIMIT ' .. tonumber(self._limit)
@@ -644,8 +696,21 @@ function Query:all(callback)
 	if self._order_by:length() > 0 then
 		sql = sql .. ' ORDER BY ' .. self._order_by:join(', ')
 	end
+	
+	
+	compiler.values:append(function(ret)
+		local data = Array:new()
 
-	p(sql)
+		ret:each(function(val)
+			data:append(self._model(val))
+		end)
+
+		callback(data)
+	end)
+
+	self._model.meta.database:connect(function(db)
+		db:query(sql, unpack(compiler.values()))
+	end)
 	
 end
 
@@ -679,7 +744,6 @@ function Mopee.meta.__call(self, args)
 		end)
 	end
 
-	
 	return AR:new(this)
 end
 

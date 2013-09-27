@@ -5,84 +5,52 @@ local twisted  = require('twisted')
 local yield    = twisted.yield
 local config   = require("./config")
 
---Mopee.meta.database = Postgres:new(config['database'], config['pqdb_lib'])
+Mopee.meta.database = Postgres:new(config['database'], config['pqdb_lib'])
 
 
-local TModel = Mopee:new('test_m', {
-	test = Mopee.IntegerField:new({index = true}),
-	title = Mopee.CharField:new({max_length = 100, default = 'ddddd'})
+local Article = Mopee:new('article', {
+	cid       = Mopee.IntegerField:new({index = true}),
+	title     = Mopee.CharField:new({max_length = 255}),
+	summarize = Mopee.TextField:new({default = '[]'}),
+	comment   = Mopee.TextField:new({default = '[]'}),
+	content   = Mopee.TextField:new({null = true})
 })
 
-local T2Model = Mopee:new('test2_m', {
-	tmodel = Mopee.ForeignKey:new(TModel)
+local Keyword = Mopee:new('keyword', {
+	title = Mopee.CharField:new({max_length = 255})
 })
 
-local model = TModel({
-	test = 12,
-	id = 1
+local ArticleKeyword = Mopee:new('article_keyword', {
+	keyword = Mopee.ForeignKey:new(Keyword),
+	article = Mopee.ForeignKey:new(Article),
 })
 
-local model2 = T2Model({
-	tmodel = model
-})
-
-T2Model:select():all()
-
-T2Model:select(T2Model.id, T2Model.tmodel, TModel.title)
-       :join(TModel.id.Eq(1))
-	   :where(TModel.title.In({1,5,6}))
-	   :or_where(TModel.id.Ge(3))
-	   :order_by(TModel.id.Asc())
-       :get()
-
---[[
-model2:save(function(ret, id)
-	p(ret, id)
-end)
-
---[[
-T2Model:creat_table(function(ret)
-	p(ret)
-end)
-
-TModel:creat_table(function(ret)
-	p(ret)
-end)
-
-local model = TModel({
-	test = 12
-})
-
--- add
-model:save(function(ar)
-	p(ar)
-	ar.test = 119
-	-- edit
-	ar:save(function(ar)
-		p(ar)
-		
-		ar:delete(function(ret)
-			p(ret)
+Article:select():where(Article.cid.Eq(1))
+       :get(function(ar)
+		   ar.title = 'change title'
+		   ar:save(function(ar)
+			   p(ar)
+		   end)
 		end)
-	end)
-end)
-
---Mopee.meta.database = Postgres:new(config['database'], config['pqdb_lib'])
 
 
---local Model = Mopee:new('test_model', {
-	--test = Mopee.BooleanField(),
-	--t2 = Mopee.IntegerField({index=true}),
-	--title = Mopee.CharField({max_length = 255})
+--local article = Article({
+	--cid = 1,
+	--title = 'test',
+	--content = 'content'
 --})
 
-
---local model = Model({
-	--test = true
---})
-
-
---model:save(function(sql)
-	--p(sql)
+--article:save(function(ar)
+	--p(ar)
 --end)
-]]
+
+
+
+--Article:creat_table(function(ret)
+	--Keyword:creat_table(function(ret)
+		--ArticleKeyword:creat_table(function(ret)
+			--p(ret)
+		--end)
+	--end)
+--end)
+

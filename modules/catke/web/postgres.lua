@@ -161,12 +161,16 @@ end
 function Postgres:query(sql, ...)
 	local fm_arg, callback = get_arguments(...)
 	
+	--p(sql)
+	--p(fm_arg)
+
 	if _connects then
 		add_task(sql, fm_arg, function(err, result)
 			if err then
 				error(err)
 			end
-			if #result == 1 then
+			--p(#result)
+			if #result == 0 then
 				callback(Array:new())
 				return
 			end
