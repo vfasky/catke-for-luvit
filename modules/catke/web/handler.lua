@@ -3,6 +3,7 @@ local Validators = require('../utils').Validators
 local String     = require('string')
 local JSON       = require('json')
 local Kernel     = require('./template')
+local twisted    = require('twisted')
 local Handler    = Object:extend()
 
 function Handler:initialize(req, res, application)
@@ -10,6 +11,8 @@ function Handler:initialize(req, res, application)
     self.res = res
     self.app = application
 	self.settings = application.settings
+	
+	self.yield = twisted.yield
 
 	--p(req)
 

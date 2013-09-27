@@ -1,8 +1,7 @@
 
 local Postgres = require("catke/web/postgres")
 local Mopee    = require('catke/web/mopee')
-local twisted  = require('twisted')
-local yield    = twisted.yield
+
 local config   = require("./config")
 
 Mopee.meta.database = Postgres:new(config['database'], config['pqdb_lib'])

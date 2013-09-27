@@ -1,11 +1,8 @@
 local table   = require('table')
 local Object  = require('core').Object
 local string  = require('string')
-local math    = require('math')
-local twisted = require('twisted')
 local Array   = require('../base').Array
 local utils   = require('../utils')
-local yield   = twisted.yield
 
 local Mopee = Object:extend()
 

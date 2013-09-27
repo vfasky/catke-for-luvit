@@ -13,6 +13,8 @@ end)
 ```
 ]]
 
+local twisted = require('twisted')
+
 return function (app, setup)
     local routes = {}
 
@@ -42,11 +44,21 @@ return function (app, setup)
                 local matches = path(req.url.path)
                 if matches then
                     req.params = matches
-                    return handler:new(req, res, application)
+
+					local async = twisted.inline_callbacks(function()
+                    	return handler:new(req, res, application)
+					end)
+
+					return async()
             end
             elseif req.url.path == path then
 				req.params = req.params or {}
-                return handler:new(req, res, application)
+
+				local async = twisted.inline_callbacks(function()
+					return handler:new(req, res, application)
+				end)
+
+				return async()
           end
         end
         app(req, res, application)
