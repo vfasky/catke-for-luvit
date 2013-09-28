@@ -59,7 +59,7 @@ if false == is_run then
 	run_task()
 end
 
-return function (req, res, handlers, app)
+return function (req, res, handlers, app, gen)
 	app.task_queue = task_queue
-	return handlers 
+	gen(true)
 end

@@ -5,8 +5,16 @@ local timer      = require('timer')
 local Array      = require('catke/base').Array
 local htmlparser = require('htmlparser')
 local JSON       = require('json')
-local _init_task = false
+local twisted    = require('twisted')
+local models     = require('../models')
 
+local yield = twisted.yield
+
+local Article        = models.Article
+local Keyword        = models.Keyword
+local ArticleKeyword = models.ArticleKeyword
+
+local _init_task = false
 local _link_list = Array:new()
 
 local get_article = function(id, task_queue)
@@ -22,8 +30,77 @@ local get_article = function(id, task_queue)
 		res:on("end", function ()
 			if html:find('{') == 1 then
 				local data = JSON.parse(html)
-				p(data['success'])
-				p(data['title'])
+
+				if data['success'] then
+					local async = twisted.inline_callbacks(function()
+						local count = yield(function(gen)
+							Article:select():where(Article.cid.Eq(id)):count(gen)
+						end)
+						
+						if 0 == count then
+							article = Article({
+								cid = id,
+								title = data['title'],
+								summarize = JSON.stringify(data['summarizes']),
+								content = data['html'],
+							})
+							
+							-- save
+							article = yield(function(gen)
+								article:save(gen)
+							end)
+
+							-- 保存关键字
+							local keywords = Array:new(data['keyword'])
+
+							keywords:each(function(kw)
+								local keyword = yield(function(gen)
+									Keyword:select():where(Keyword.title.Eq(kw)):get(gen)
+								end)
+
+
+								if nil == keyword then
+									keyword = Keyword({
+										title = kw
+									})
+
+									keyword = yield(function(gen)
+										keyword:save(gen)
+									end)
+								end
+
+								
+								-- 关联文章
+								local count = yield(function(gen)
+									ArticleKeyword:select():where(ArticleKeyword.article.Eq(article))
+												  :where(ArticleKeyword.keyword.Eq(keyword))
+												  :count(gen)
+								end)
+
+								if 0 == count then
+									--p(article)
+									--p(keyword)
+									local artkw = ArticleKeyword({
+										article = article,
+										keyword = keyword,
+									})
+
+									p(artkw)
+
+									artkw:save(function(artkw)
+										p(artkw)
+									end)
+								end
+
+
+							end)
+						end
+					end)
+
+					async()
+				end
+				--p(data['success'])
+				--p(data['title'])
 			end
 						
 			res:destroy()
@@ -68,7 +145,7 @@ local format_list = function(html, task_queue)
 	_link_list = list
 end
 
-return function (req, res, handlers, app)
+return function (req, res, handlers, app, gen)
 	req.run_time = os.time()
 
 	if false == _init_task then
@@ -104,5 +181,5 @@ return function (req, res, handlers, app)
 	end
 
 
-	return handlers 
+	gen(true)
 end

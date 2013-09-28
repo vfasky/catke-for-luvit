@@ -49,24 +49,24 @@ end
 
 -- 对外发布
 return function (root)
-	return function (req, res, handlers, app)
+	return function (req, res, handlers, app, gen)
 	
 		-- Ignore non-GET/HEAD requests
         if not (req.method == "HEAD" or req.method == "GET") then
-            return handlers
+            return gen(true)
 		end
 
-        local serve = function(path, callback)
+        local serve = function(path)
 
             fs.open(path, "r", function (err, fd)
                 if err then
-                    return handlers
+                    return gen(true)
                 end
 
                 fs.fstat(fd, function (err, stat)
                     if err then
                         fs.close(fd)
-                        return handlers
+                        return gen(true)
 					end
 
                     local etag = calcEtag(stat)
@@ -84,9 +84,10 @@ return function (root)
                     if stat.is_directory then
                         -- Can't serve directories as files
                         fs.close(fd)
-                        return res(302, {
+                        res(302, {
                             ["Location"] = req.url.path .. "/"
                         })
+						return gen(false)
                     end
 
                     headers["Content-Type"] = getType(path)
@@ -96,7 +97,7 @@ return function (root)
 
                     fs.createReadStream(path):pipe(res)
                     fs.close(fd)
-                    
+                    return gen(false)
                 end)
             end)
             
@@ -105,11 +106,12 @@ return function (root)
 		local dir  = '/static/'
 
 		if not uri then
-			return handlers
+			return gen(true)
+
 		end
 	
 		if uri:find(dir) ~= 1 then
-			return handlers
+			return gen(true)
 		end
 	
 		local path = pathJoin(root .. '/', uri:sub(#dir))
@@ -117,17 +119,18 @@ return function (root)
 		m_path = string.gsub(path, '%-', '')
 
 		if m_path:find(m_root) ~= 1 or path:sub(#path) == '/' then
-            return handlers
+            return gen(true)
+
 		else 
             fs.exists(path, function(err)
                 
                 if err then
-                    return handlers
+                    return gen(true)
 				end
 
                 serve(path)
-				return false
-            end)
+				
+			end)
         end
     end
 end

@@ -63,6 +63,7 @@ function Field:init(args)
 	_field_ix  = _field_ix + 1
 	self.order = _field_ix
 
+	--p(args)
 	for k, v in pairs(self.promise) do
 		if args and args[k] then
 			self.attr[k] = v(args[k])
@@ -70,6 +71,11 @@ function Field:init(args)
 			self.attr[k] = v.default
 		end
 	end
+
+	self._format_val = function(x)
+		return x
+	end
+
 	
 	self.As = function(name)
 		local this = utils.copy(self)
@@ -96,6 +102,7 @@ function Field:init(args)
 	
 	-- 小于
 	self.Lt = function(x)
+		x = self._format_val(x)
 		return { 
 			this = self,
 			name = self.get_name(),
@@ -106,6 +113,8 @@ function Field:init(args)
 	
 	-- 小于等于
 	self.Le = function(x)
+		x = self._format_val(x)
+
 		return { 
 			this = self,
 			name = self.get_name(),
@@ -116,6 +125,8 @@ function Field:init(args)
 	
 	-- 大于
 	self.Gt = function(x)
+		x = self._format_val(x)
+
 		return { 
 			this = self,
 			name = self.get_name(),
@@ -127,6 +138,8 @@ function Field:init(args)
 	
 	-- 大于等于
 	self.Ge = function(x)
+		x = self._format_val(x)
+
 		return { 
 			this = self,
 			name = self.get_name(),
@@ -137,6 +150,8 @@ function Field:init(args)
 
 	-- 不等于
 	self.Ne = function(x)
+		x = self._format_val(x)
+
 		return { 
 			this = self,
 			name = self.get_name(),
@@ -147,6 +162,8 @@ function Field:init(args)
 	
 	-- 等于
 	self.Eq = function(x)
+		x = self._format_val(x)
+
 		if x == nil then
 			x = ''
 		end
@@ -160,6 +177,8 @@ function Field:init(args)
 	end
 
 	self.Link = function(x)
+		x = self._format_val(x)
+
 		if x == nil then
 			x = ''
 		end
@@ -173,6 +192,8 @@ function Field:init(args)
 	end
 
 	self.Ilink = function(x)
+		x = self._format_val(x)
+
 		if x == nil then
 			x = ''
 		end
@@ -198,6 +219,8 @@ function Field:init(args)
 		end
 
 		for k, v in ipairs(list) do
+			v = self._format_val(v)
+
 			local value = promise(v)
 
 			if 0 ~= value then
@@ -230,6 +253,8 @@ function Field:init(args)
 		end
 
 		for k, v in ipairs(list) do
+			v = self._format_val(v)
+
 			local value = promise(v)
 
 			if 0 ~= value then
@@ -315,8 +340,10 @@ end
 local TextField = Field:extend()
 Mopee.TextField = TextField 
 
-function TextField:initialize(target)
-	self:init()
+function TextField:initialize(...)
+	--p(...)
+
+	self:init(...)
 	self.data_type = utils.Promise:new('string')
 end
 
@@ -333,7 +360,15 @@ Mopee.ForeignKey = ForeignKey
 function ForeignKey:initialize(target)
 	self:init()
 	self.target = target
-	self.data_type = utils.Promise:new('table')
+	self.data_type = utils.Promise:new('number')
+
+	self._format_val = function(x)
+		if type(x) == 'table' then
+			return x.id
+		end
+		return x
+	end
+
 end
 
 
@@ -343,16 +378,15 @@ function ForeignKey:sql()
 end
 
 function ForeignKey:serialize(x)
-	if x == nil then
-		return x
+	if type(x) == 'table' then
+		return x.id
 	end
-	--p(x.id)
-	return x.id
+	return x
 end
 
-function ForeignKey:unserialize(x)
-	return { id = x }
-end
+--function ForeignKey:unserialize(x)
+	--return x
+--end
 
 
 
@@ -470,6 +504,10 @@ function AR:save(callback)
 
 	end
 
+	if nil == callback then
+		return
+	end
+
 	local database = self._model.meta.database 
 	if nil == database then
 		callback(sql, values)
@@ -569,13 +607,23 @@ function Query:count(callback)
 		compiler.table_sql,
 		compiler.where_sql
 	)
-	p(sql)
+
+	compiler.values:append(function(ret)
+		--p(ret[1][1])
+		callback(tonumber(ret[1][1]))
+	end)
+	
+	self._model.meta.database:connect(function(db)
+		db:execute(sql, unpack(compiler.values()))
+	end)
 
 end
 
 function Query:get(callback)
 	self._offset = 0
 	self._limit  = 1
+
+	callback = callback or function() end
 
 	self:all(function(data)
 		if data:length() == 0 then
@@ -674,7 +722,7 @@ function Query:compiler_sql()
 end
 
 function Query:all(callback)
-	
+	callback = callback or function() end
 	local compiler   = self:compiler_sql()
 	local sql        = string.format("SELECT %s FROM %s %s", 
 		compiler.select_sql, 

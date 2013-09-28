@@ -1,9 +1,13 @@
 local parse_url = require('http_parser').parseUrl
 local http      = require("http")
-local Response  = http.Response
+local twisted   = require('twisted')
 local route     = require("./router")
 local Array     = require("../base").Array
 local utils     = require("../utils")
+
+local Response  = http.Response
+
+
 -- 主调度
 local Application = {}
 
@@ -65,34 +69,46 @@ Application.createServer = function(handlers, settings)
 	
 	Application.settings = utils.extend(Application.settings, settings)
 
-    return http.createServer(function (req, res)
-        req.url = parse_url(req.url)
+    return http.createServer(function(req, res)
 
-		local status, err = pcall(function()
-			-- 加载中间件
-			Application._middlewares:each(function(middleware)
-				handlers = middleware(req, res, handlers, Application)
-				if false == handlers then
-					return false
+		local async = twisted.inline_callbacks(function()
+			req.url = parse_url(req.url)
+
+			local status, err = pcall(function()
+				-- 加载中间件
+				local ret = true
+				Application._middlewares:each(function(middleware)
+					
+					ret = twisted.yield(function(gen)
+						middleware(req, res, handlers, Application, gen)
+					end)
+			
+					if false == ret then
+						return false
+					end
+
+				end)
+				
+				if ret then
+					handlers(req, res, Application)
 				end
 			end)
 
-			if handlers then
-				handlers(req, res, Application)
+			if not status then
+				
+				if settings['debug'] then
+					p(err)
+					res:send_error(err:split(':')[3])
+				else
+					p(err)
+					res:send_error('505')
+				end
 			end
 
+			return status
 		end)
 
-		if not status then
-			
-			if settings['debug'] then
-				p(err)
-				res:send_error(err:split(':')[3])
-			else
-				print(err)
-				res:send_error('505')
-			end
-		end
+		async()
     end)
 end
 
