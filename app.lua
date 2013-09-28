@@ -2,6 +2,7 @@ local web      = require("catke/web")
 local config   = require("./config")
 
 local app = web.route('/', require('./app/handlers/index'))
+app.route('/install', require('./app/handlers/install'))
 
 -- 加载静态目录中间件
 web.use(require('catke/web/static')(config['sataic_path']))

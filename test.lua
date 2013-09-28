@@ -1,7 +1,6 @@
-
+local os       = require('os')
 local Postgres = require("catke/web/postgres")
 local Mopee    = require('catke/web/mopee')
-
 local config   = require("./config")
 
 Mopee.meta.database = Postgres:new(config['database'], config['pqdb_lib'])
@@ -24,13 +23,15 @@ local ArticleKeyword = Mopee:new('article_keyword', {
 	article = Mopee.ForeignKey:new(Article),
 })
 
-Article:select():where(Article.cid.Eq(1))
-       :get(function(ar)
-		   ar.title = 'change title'
-		   ar:save(function(ar)
-			   p(ar)
-		   end)
-		end)
+--p(os.date('%Y-%m-%d %H:%M:%S', os.time()))
+
+--Article:select():where(Article.cid.Eq(1))
+       --:get(function(ar)
+		   --ar.title = 'change title'
+		   --ar:save(function(ar)
+			   --p(ar)
+		   --end)
+		--end)
 
 
 --local article = Article({

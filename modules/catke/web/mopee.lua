@@ -416,28 +416,66 @@ function Mopee:initialize(db_table, fields)
 
 end
 
+function Mopee:table_exists(callback)
+	local sql = [[SELECT c.relname
+FROM pg_catalog.pg_class c
+LEFT JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+WHERE c.relkind IN ('r', 'v', '')
+AND n.nspname NOT IN ('pg_catalog', 'pg_toast')
+AND pg_catalog.pg_table_is_visible(c.oid)
+ORDER BY c.relname]]
+
+	local this = self
+
+	self.meta.database:connect(function(db)
+		db:execute(sql, function(ret)
+			local tables = Array:new(ret)
+			local exists = false
+
+			tables:each(function(table)
+				if table[1] == this._db_table then
+					exists = true
+					return false
+				end
+			end)
+
+			callback(exists)
+
+			--p(tables:index({this._db_table}))
+		end)
+	end)
+
+end
+
 function Mopee:creat_table(callback)
 	local stack  = Array:new()
 	local indexs = Array:new()
-	self._fields:each(function(field)
-		stack:append(field:sql())
-		if field.attr.index then
-			indexs:append(field.name)
+	local this   = self
+	
+	self:table_exists(function(exists)
+		if exists then
+			return callback(true)
 		end
-	end)
 
-	local sql = 'CREATE TABLE IF NOT EXISTS "%s" (%s);'
-	sql = sql:format(self._db_table, stack:join(', '))
+		this._fields:each(function(field)
+			stack:append(field:sql())
+			if field.attr.index then
+				indexs:append(field.name)
+			end
+		end)
 
-	local ix_sql = ''	
-	-- creat index
-	if indexs:length() > 0 then
-		ix_sql = 'CREATE INDEX %s_idx ON "%s" (%s);'
-		ix_sql = ix_sql:format(self._db_table, self._db_table, indexs:join(', '))
-	end
+		
+		local sql = 'CREATE TABLE IF NOT EXISTS "%s" (%s);'
+		sql = sql:format(this._db_table, stack:join(', '))
 
-	if self.meta.database then
-		self.meta.database:connect(function(db)
+		local ix_sql = ''	
+		-- creat index
+		if indexs:length() > 0 then
+			ix_sql = 'CREATE INDEX %s_idx ON "%s" (%s);'
+			ix_sql = ix_sql:format(this._db_table, this._db_table, indexs:join(', '))
+		end
+
+		this.meta.database:connect(function(db)
 			db:execute(sql, function(ret)
 				--p(ix_sql)
 				if '' == ix_sql then
@@ -447,10 +485,9 @@ function Mopee:creat_table(callback)
 				db:execute(ix_sql, callback)
 			end)
 		end)
-		return
-	end
+		
+	end)
 
-	callback(sql .. ix_sql)
 end
 
 -- database
