@@ -21,9 +21,19 @@ function Kernel.helpers.Loop(array, block, callback)
     local left = 1
     local parts = {}
     local done
+	--p(array)
     for i, value in ipairs(array) do
         left = left + 1
-        value.index = i
+		if type(value) == 'table' then
+        	value.index = i
+		else
+			local val = value
+			value = {}
+			value._ = val
+		end
+
+		--p(value)
+
         block(value, function (err, result)
             if done then return end
             if err then

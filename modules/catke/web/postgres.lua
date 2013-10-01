@@ -204,7 +204,9 @@ function Postgres:execute(sql, ...)
 	if _connects then
 		add_task(sql, fm_arg, function(err, result)
 			if err then
-				error(err)
+				p(err)
+				callback(nil, err)
+				return
 			end
 			
 			callback(result)

@@ -10,6 +10,10 @@ function string:split(sep)
 	return fields
 end
 
+function string:trim()
+	return self:match'^()%s*$' and '' or self:match'^%s*(.*%S)'
+end
+
 --[[
 数组的实现
 ==========

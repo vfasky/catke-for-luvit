@@ -1,11 +1,27 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title></title>
-</head>
-<body>
-    {Require('base.html', this)}
-    {test} test
-</body>
-</html>
+{Require('_head.html', this)}
+
+<div class="row marketing">
+    {#Loop(articles)}
+    <div class="col-xs-12 item">
+        <h4>
+            <a href="/view/{id}" title="{title}">{title}</a>
+        </h4>
+        {#Loop(summarize)}
+        <p>{_}</p>        
+        {/Loop}
+    </div>
+    {/Loop}
+</div>
+
+<ul class="pager">
+    {#If(page ~= 1)}
+    <li class="previous"><a href="/page/{{ page - 1 }}">&larr; Older</a></li>
+    {/If}
+
+    {#If(#articles == 10)}
+    <li class="next"><a href="/page/{{ page + 1 }}">Newer &rarr;</a></li>
+    {/If}
+
+</ul>
+{Require('_foot.html', this)}
+

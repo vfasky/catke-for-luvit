@@ -1,0 +1,67 @@
+{Require('_head.html', this)}
+
+<div class="row">
+
+    <div class="col-lg-8">
+        <h3>{title}</h3>
+        <p>
+           [ <a href="http://www.cnbeta.com/articles/{article.cid}.htm" target="blank">来源</a>  
+           {article.date} ]
+        </p>
+        
+        {article.content}
+
+        <ul class="pager">
+            {#If(pre_article ~= nil)}
+            <li class="previous"><a href="/view/{pre_article.id}" title="{pre_article.title}">&larr; Prev</a></li>
+            {/If}
+
+            {#If(next_article ~= nil)}
+            <li class="next"><a href="/view/{next_article.id}" title="{next_article.title}">Next &rarr;</a></li>
+            {/If}
+
+        </ul>
+
+    </div>
+
+    <div class="col-lg-4">
+        {#If(#article.comment > 0)}
+        <div class="panel panel-warning comments">
+            <div class="panel-heading">
+                <h4 class="panel-title">热门评论</h4>
+            </div>
+
+            <dl class="list-group">     
+                {#Loop(article.comment)}
+                <div class="list-group-item">
+                    <dt>
+                    {user} | {date} 
+                    <span class="label label-default">{support} | {opposition}</span>
+                    </dt>
+
+                    <dd>
+                    {comment}
+                    </dd>
+                </div>
+                {/Loop}
+            </dl>
+
+        </div>
+        {/If}
+
+        <!-- Baidu Button BEGIN -->
+        <div id="bdshare" class="bdshare_b" style="line-height: 12px;">
+        <img src="http://bdimg.share.baidu.com/static/images/type-button-1.jpg?cdnversion=20120831" />
+        </div>
+        <script type="text/javascript" id="bdshare_js" data="type=button&amp;uid=0" ></script>
+        <script type="text/javascript" id="bdshell_js"></script>
+        <script type="text/javascript">
+        document.getElementById("bdshell_js").src = "http://bdimg.share.baidu.com/static/js/shell_v2.js?cdnversion=" + Math.ceil(new Date()/3600000);
+        </script>
+        <!-- Baidu Button END -->
+    </div>
+</div>
+
+
+{Require('_foot.html', this)}
+

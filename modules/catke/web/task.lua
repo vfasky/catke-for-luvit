@@ -4,6 +4,8 @@
 local Array = require('../base').Array
 local utils = require('../utils')
 local timer = require('timer')
+local os    = require('os')
+local math  = require('math')
 
 local _tasks = Array:new()
 
@@ -21,12 +23,20 @@ local function run_task()
 				task_count = 1
 			end
 
-			if task_count%task.time == 0 then
-				task.callback()
-				if task.count ~= -1 then
-					task.count = task.count - 1
-					if 0 >= task.count then
-						_tasks:remove(task)
+			if task.count == 1 then
+					
+				if os.time() - task.creat_time >= task.time then
+					task.callback()
+					_tasks:remove(task)
+				end
+			else
+				if task_count%task.time == 0 then
+					task.callback()
+					if task.count ~= -1 then
+						task.count = task.count - 1
+						if 0 >= task.count then
+							_tasks:remove(task)
+						end
 					end
 				end
 			end
@@ -36,6 +46,7 @@ end
 
 task_queue.add = function(task)
 	task = utils.extend({
+		creat_time = os.time(),
 		time = 3600, -- 单位，秒
 		count = 1, -- -1 为重复执行
 		callback = function() end
@@ -59,7 +70,7 @@ if false == is_run then
 	run_task()
 end
 
-return function (req, res, handlers, app, gen)
+return function (req, res, app, gen)
 	app.task_queue = task_queue
 	gen(true)
 end

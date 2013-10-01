@@ -369,6 +369,8 @@ function ForeignKey:initialize(target)
 		return x
 	end
 
+	--p(self.target)
+
 end
 
 
@@ -505,6 +507,17 @@ function AR:initialize(model)
 	end)
 end
 
+
+function AR.meta.__call(self)
+	local data = {}
+
+	self._fields:each(function(field)
+		data[field.name] = self[field.name]
+	end)
+	
+	return data
+end
+
 function AR:save(callback)
 	local is_insert = self.id == nil
 	local values    = Array:new()
@@ -552,10 +565,19 @@ function AR:save(callback)
 	end
 	
 	local this = self
-	values:append(function(ret)
+	values:append(function(ret, err)
+		if err then
+			this = nil
+			callback(nil)
+			return
+		end
+		
 		if is_insert and ret[1] and ret[1][1] then
 			this.id = tonumber(ret[1][1])
 		end
+		--p(this)
+		--p('-------------')
+
 		callback(this)
 	end)
 
@@ -656,6 +678,17 @@ function Query:count(callback)
 
 end
 
+function Query:limit(limit)
+	self._limit = tonumber(limit)
+	return self
+end
+
+function Query:offset(offset)
+	self._offset = tonumber(offset)
+	return self
+end
+
+
 function Query:get(callback)
 	self._offset = 0
 	self._limit  = 1
@@ -672,17 +705,40 @@ function Query:get(callback)
 	end)
 end
 
+function Query:page(page, page_size)
+	page = page or 1
+	page_size = page_size or 10
+
+	page = tonumber(page)
+	page_size = tonumber(page_size)
+
+	if page < 1 then
+		page = 1
+	end
+
+	if page_size < 1 then
+		page_size = 1
+	end
+	self:offset((page - 1) * page_size)
+	self:limit(page_size)
+	return self
+end
+
 function Query:compiler_sql()
 		-- 需要转义的值
 	local values     = Array:new()
 
 	local select_sql = '*'
+	local this       = self
 
 	if self._select:length() > 0 then
 		select_sql = self._select:join(', ')
 	end
 
 	local table_sql = string.format('"%s"', self._model._db_table)
+
+	local wheres = Array:new()
+
 
 	if self._join:length() > 0 then
 		local tables = Array:new()
@@ -692,6 +748,15 @@ function Query:compiler_sql()
 			local db_table = string.format('"%s"', field.this.model._db_table)
 			if tables:index(db_table) == -1 then
 				tables:append(db_table)
+
+				field.this.model._fields:each(function(f)
+					if f.target and f.target._db_table == this._model._db_table then
+						wheres:append(string.format('"%s"."%s" = "%s"."id"',
+							field.this.model._db_table, f.name, f.target._db_table
+						))
+
+					end
+				end)
 			end
 
 			self._where:append(field)
@@ -705,8 +770,7 @@ function Query:compiler_sql()
 	
 	if self._where:length() > 0 then
 
-		local wheres = Array:new()
-
+		
 		self._where:each(function(where)
 			if where then
 				if where.type ~= 'IN' and where.type ~= 'NOT IN' then
@@ -726,7 +790,7 @@ function Query:compiler_sql()
 	-- or where
 
 	if self._or:length() > 0 then
-		if self._where:length() > 0 then
+		if wheres:length() > 0 then
 			where_sql = where_sql .. ' OR '
 		else
 			where_sql = ' WHERE '
@@ -767,6 +831,11 @@ function Query:all(callback)
 		compiler.where_sql
 	)
 
+	
+	if self._order_by:length() > 0 then
+		sql = sql .. ' ORDER BY ' .. self._order_by:join(', ')
+	end
+	
 	if self._limit then
 		sql = sql .. ' LIMIT ' .. tonumber(self._limit)
 	end
@@ -775,10 +844,6 @@ function Query:all(callback)
 		sql = sql .. ' OFFSET ' .. tonumber(self._offset)
 	end
 
-	if self._order_by:length() > 0 then
-		sql = sql .. ' ORDER BY ' .. self._order_by:join(', ')
-	end
-	
 	
 	compiler.values:append(function(ret)
 		local data = Array:new()
@@ -789,7 +854,7 @@ function Query:all(callback)
 
 		callback(data)
 	end)
-
+	--p(sql)
 	self._model.meta.database:connect(function(db)
 		db:query(sql, unpack(compiler.values()))
 	end)
@@ -816,6 +881,11 @@ function Mopee.meta.__call(self, args)
 	local tasks = Array:new()
 	local this  = self
 	args = args or {}
+	
+	-- init
+	this._fields:each(function(field)
+		field(nil)
+	end)
 
 	-- set field value
 	for k, v in pairs(args) do

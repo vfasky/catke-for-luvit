@@ -1,0 +1,19 @@
+<html>
+<body>
+{% if user ~= 'dd' %}
+test
+{% endif %}
+
+{% for aval in bigul %}
+<ul {{ css.color }}>
+{% for user in users %}
+  <li><a href="{{ user.url }}">{{ aval }} {{ user.username }}</a></li>{% endfor %}
+</ul>
+{% endfor %}
+<div>
+{% block body %}
+	I'm parent block  {% endblock %}
+</div>
+</body>
+</html>
+

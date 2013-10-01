@@ -54,9 +54,11 @@ end
 
 --添加路由及handler
 Application.route = function(path, handler)
-    return route(Application.handlers, function(route)
+    Application.handlers = route(Application.handlers, function(route)
         route(path, handler)
     end)
+		
+	return Application
 end
 
 --绑定中间件
@@ -65,9 +67,11 @@ Application.use = function(middleware)
 	return Application
 end
 
-Application.createServer = function(handlers, settings)
+Application.createServer = function(settings)
 	
 	Application.settings = utils.extend(Application.settings, settings)
+
+	local handlers = Application.handlers
 
     return http.createServer(function(req, res)
 
@@ -80,7 +84,7 @@ Application.createServer = function(handlers, settings)
 				Application._middlewares:each(function(middleware)
 					
 					ret = twisted.yield(function(gen)
-						middleware(req, res, handlers, Application, gen)
+						middleware(req, res, Application, gen)
 					end)
 			
 					if false == ret then
@@ -93,7 +97,7 @@ Application.createServer = function(handlers, settings)
 					handlers(req, res, Application)
 				end
 			end)
-
+			
 			if not status then
 				
 				if settings['debug'] then

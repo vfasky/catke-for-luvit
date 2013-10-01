@@ -38,20 +38,16 @@ function Handler:set_default_headers()
 end
 
 function Handler:write_error(reason, code)
-    if nil == code then
-        code = "500"
-    end
-
-	self:set_header('Content-Length', #reason)
-
-    self.res:writeHead(code, self._headers)
-    self.res:write(reason)
-    self.res:finish()
+ 	code = code or 500
+    self:write(reason, code)
+    self:finish()
 end
 
 -- 输出
-function Handler:write(x)
+function Handler:write(x, code)
     res = self.res
+	code = code or 200
+
 	local body = x
 
 	if Validators.is_string(x) then
@@ -59,7 +55,7 @@ function Handler:write(x)
 		self:set_header('Content-Length', #body)
  		self:set_header('Content-Type', "text/html; charset=UTF-8")
 
-        res:writeHead(200, self._headers)
+        res:writeHead(code, self._headers)
         
     elseif Validators.is_table(x) then
         body = JSON.stringify(x)
@@ -67,7 +63,7 @@ function Handler:write(x)
 		self:set_header('Content-Length', #body)
        	self:set_header('Content-Type', "application/json; charset=UTF-8")
 
-		res:writeHead(200, self._headers)
+		res:writeHead(code, self._headers)
 	else
 		body = tostring(body)
     end
@@ -102,6 +98,8 @@ function Handler:render(filename, data)
 
 		template(data, function(err, result)
 			if err then
+				p(err)
+
 				handler:write_error(err)
 				return
 			end
