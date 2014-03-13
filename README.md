@@ -3,6 +3,134 @@ Catke : lua web框架
 
 使用 [luvit](http://luvit.io) 作为底层，性能强劲的 web 框架
 
+
+node 已经脱离了刀耕火种的年代，luvit 还是水深火热中 Q^Q
+
+Catke for luvit 是一个简单的 web 框架，让你写 luvit 的时候，不用从头再来
+
+- 静态目录支持
+- 路由支持
+- 任务队列支持
+- 模板引擎
+- 异步ORM(Postgres)
+- 类 tornado 的协程支持
+
+### ORM:
+
+#### 定义model `models.lua`
+
+```lua
+local Postgres = require('catke/web/postgres')
+local Mopee    = require('catke/web/mopee')
+
+-- 数据库配置，需指定 libpq 的位置 
+Mopee.meta.database = Postgres:new({
+	host     = '127.0.0.1',
+	dbname   = 'cb',
+	user     = '',
+	password = '',
+	size     = 40 -- 连接数
+}, '/usr/lib/libpq.5.dylib')
+
+local exports = {}
+
+exports.Article = Mopee:new('article', {
+	cid       = Mopee.IntegerField:new({index = true}),
+	title     = Mopee.CharField:new({max_length = 255}),
+	time      = Mopee.IntegerField:new({index = true}),
+	summarize = Mopee.TextField:new({default = '[]'}),
+	comment   = Mopee.TextField:new({default = '[]'}),
+	content   = Mopee.TextField:new({null = true})
+})
+
+
+exports.Keyword = Mopee:new('keyword', {
+	title = Mopee.CharField:new({max_length = 255})
+})
+
+exports.ArticleKeyword = Mopee:new('article_keyword', {
+	keyword = Mopee.ForeignKey:new(exports.Keyword),
+	article = Mopee.ForeignKey:new(exports.Article),
+	hasid   = Mopee.CharField:new({max_length = 30, unique = true})
+})
+
+return exports
+
+```
+
+### 查询
+
+``` lua
+local Article        = require('./models').Article
+local Keyword        = require('./models').Keyword
+local ArticleKeyword = require('./models').ArticleKeyword
+
+-- 查询多条
+Article:select(Article.id, Article.title, Article.summarize)
+	   :where(Article.id.Gt(10)) -- 大于10
+	   :order_by(Article.cid.Desc())
+	   :page(1, 10)
+	   :all(function(data)
+			p(data)
+	   end)
+
+-- 查询单条
+Article:select()
+       :where(Article.id.Eq(id))
+	   :get(function(article)
+	   		p(article)
+			-- 关联查询 
+			Keyword:select(ArticleKeyword.id, Keyword.title)
+				   :join(ArticleKeyword.article.Eq(article))
+				   :order_by(ArticleKeyword.id.Asc())
+				   :all(function(data)
+					    p(data)
+				   end)
+
+	   end)
+
+```
+
+### 添加, 修改, 删除
+
+``` lua
+local os       = require('os')
+local Article  = require('./models').Article
+
+-- 添加
+local article = Article({
+	cid = 1,
+	title = 'test',
+	time = os.time(),
+	summarize = '[]',
+	content = 'content',
+})
+
+article:save(function(article)
+	p(article.id)
+end)
+
+-- 修改
+Article:select()
+       :where(Article.cid.Eq(1))
+	   :get(function(article)
+			article.title = 'test2'
+			article:save(function(article)
+				p(article.id)
+			end)
+		end)
+
+-- 删除
+Article:select()
+       :where(Article.cid.Eq(1))
+	   :get(function(article)
+			article:delete(function(res)
+				p(res)
+			end)
+		end)
+
+```
+
 ### 性能测试
 
 - cpu  : 双核 i5(1.7G) 
