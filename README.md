@@ -133,6 +133,68 @@ Article:select()
 
 ```
 
+## 协程支持
+
+> 异步的回调相当麻烦，但加入协程（coroutine），会变很美好。
+
+上面的ORM, 看着一层层的回调，很不优雅，对不对？
+
+下面，Catke for luvit 的 协程上场
+
+
+```lua
+local Article = require('./models').Article
+
+local twisted = require('twisted')
+local yield   = twisted.yield
+
+-- 写在里面的代码，能实现类 tornado 的协程支持
+local async = twisted.inline_callbacks(function()
+    -- 查询单条
+    local article = yield(function(gen)
+        Article:select()
+               :where(Article.id.Eq(id))
+               :get(gen)
+    end)
+    
+    -- 看，不用回调了
+    p(article.id)
+end)
+
+-- 记得执行代码
+async()
+```
+
+
+> 还能更优雅，`catke/web/handler` 已经实现了 `twisted.inline_callbacks` 包装
+
+## handler 里面的协程，是这样的
+
+```lua
+local Handler  = require('catke/web/handler')
+local View     = Handler:extend()
+local Article  = require('./models').Article
+
+
+-- 处理 get 的请求
+function View:get()
+    local this = self
+    local id   = tonumber(self.req.params.id) 
+
+    local article = self.yield(function(gen)
+
+        Article:select()
+               :where(Article.id.Eq(id))
+               :get(gen)
+    end)
+
+    self:write(article.title)
+end
+```
+
+异步，是不是也能很优雅？ ^_^
+
+
 ### 性能测试
 
 - cpu  : 双核 i5(1.7G) 
