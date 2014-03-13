@@ -15,6 +15,8 @@ Catke for luvit 是一个简单的 web 框架，让你写 luvit 的时候，不�
 - 异步ORM(Postgres)
 - 类 tornado 的协程支持
 
+更多[文档](https://vfasky.com/tags/catke-luvit/)
+
 ### ORM:
 
 #### 定义model `models.lua`
